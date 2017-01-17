@@ -23,8 +23,8 @@ var User = db.Model.extend({
         }
         model.set('password', hash);
         res(hash);
-        console.log('PASSWORD HASHED. HASH =', hash);
-        console.log('NEW PW:', model.get('password'));
+        // console.log('PASSWORD HASHED. HASH =', hash);
+        // console.log('NEW PW:', model.get('password'));
       });
     });
   }

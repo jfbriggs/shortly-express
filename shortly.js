@@ -25,7 +25,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
-app.use(cookieParser('My secret is cheese'));  // INSTALLED
+app.use(cookieParser('S3CR3tCHEESEFACT0rY'));  // INSTALLED -- random string used to give each cookie a unique random id
 app.use(session());  // NECESSARY FOR SESSIONS, WE ADDED
 
 var restrict = function(req, res, next) {
@@ -51,7 +51,7 @@ function(req, res) {
 
 app.get('/links', restrict,
 function(req, res) {
-  Links.reset().fetch().then(function(links) {
+  Links.reset().query('where', 'userID', '=', req.session.user).fetch().then(function(links) {
     res.status(200).send(links.models);
     // console.log(links);
   });
@@ -79,7 +79,8 @@ function(req, res) {
         Links.create({
           url: uri,
           title: title,
-          baseUrl: req.headers.origin
+          baseUrl: req.headers.origin,
+          userID: req.session.user
         })
         .then(function(newLink) {
           res.status(200).send(newLink);
@@ -114,6 +115,7 @@ app.post('/login', function(req, res) {
         }
       });
     } else {
+      res.redirect('/login');
     }
   });
 
@@ -127,12 +129,21 @@ app.post('/signup', function(req, res) {
   User.where('username', req.body.username).fetch().then(function(user) {
     if (user) {
       console.log('Username already exists - choose another!');
+      res.redirect('/signup');
     } else {
-      new User({'username': req.body.username, 'password': req.body.password}).save();
-      console.log('Account created successfully - please log in.');
-      res.redirect('/login');
+      new User({'username': req.body.username, 'password': req.body.password}).save().then(function() {
+        req.session.regenerate(function() {
+          req.session.user = req.body.username;
+          res.redirect('/');
+        });
+      });
     }
   });
+});
+
+app.get('/logout', function(req, res) {
+  req.session.destroy();
+  res.redirect('/');
 });
 
 /************************************************************/

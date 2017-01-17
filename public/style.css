@@ -44,7 +44,7 @@ h1 {
   text-align: center;
 }
 
-.navigation li a:hover {
+.navigation li a:hover, .logout:hover {
   background-color: #ddd;
 }
 
