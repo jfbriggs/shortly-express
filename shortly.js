@@ -2,6 +2,9 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
+var session = require('express-session');
+var cookieParser = require('cookie-parser');
+var bcrypt = require('bcrypt-nodejs');
 
 
 var db = require('./app/config');
@@ -22,21 +25,35 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
+app.use(cookieParser('My secret is cheese'));  // INSTALLED
+app.use(session());  // NECESSARY FOR SESSIONS, WE ADDED
 
-app.get('/', 
+var restrict = function(req, res, next) {
+  if (req.session.user) {
+    next();
+  } else {
+    req.session.error = 'You are not logged in';
+    res.redirect('/login');
+    // console.log('not authorized', req);
+  }
+};
+
+app.get('/', restrict, 
+function(req, res) {
+  // res.redirect('/login');
+  res.render('index');
+});
+
+app.get('/create', restrict,
 function(req, res) {
   res.render('index');
 });
 
-app.get('/create', 
-function(req, res) {
-  res.render('index');
-});
-
-app.get('/links', 
+app.get('/links', restrict,
 function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.status(200).send(links.models);
+    // console.log(links);
   });
 });
 
@@ -76,7 +93,47 @@ function(req, res) {
 // Write your authentication routes here
 /************************************************************/
 
+app.get('/login', function(req, res) {
+  res.render('login');
+});
 
+app.post('/login', function(req, res) {
+  var userObj = req.body;
+
+  // ping DB, check if user exists
+  User.where('username', userObj.username).fetch().then(function(user) {
+    if (user) {
+      bcrypt.compare(userObj.password, user.attributes.password, function(err, results) {
+        if (results) {
+          req.session.regenerate(function() {
+            req.session.user = userObj.username;
+            res.redirect('/');
+          });
+        } else {
+          res.redirect('/login');
+        }
+      });
+    } else {
+    }
+  });
+
+});
+
+app.get('/signup', function(req, res) {
+  res.render('signup');
+});
+
+app.post('/signup', function(req, res) {
+  User.where('username', req.body.username).fetch().then(function(user) {
+    if (user) {
+      console.log('Username already exists - choose another!');
+    } else {
+      new User({'username': req.body.username, 'password': req.body.password}).save();
+      console.log('Account created successfully - please log in.');
+      res.redirect('/login');
+    }
+  });
+});
 
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
